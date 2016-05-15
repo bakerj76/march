@@ -6,3 +6,5 @@ use a buffer to pass in scene info
 handle textured objects
 path tracing?!
 make camera a projection matrix
+
+don't render to another fbo if there isn't scaling

@@ -75,6 +75,9 @@ class March:
         glUseProgram(self.ray_shader)
         self.uniforms['cameraPos'] = glGetUniformLocation(self.ray_shader, 'cameraPos')
 
+    def set_uniforms(self):
+        glUniform3f(self.uniforms['cameraPos'], *self.camera)
+
     def draw(self):
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
         glViewport(0, 0, self.width, self.height)
@@ -82,7 +85,6 @@ class March:
         glUseProgram(self.ray_shader)
         self.set_uniforms()
 
-        glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, self.draw_texture)
         glDrawArrays(GL_QUADS, 0, 4)
 
@@ -91,7 +93,6 @@ class March:
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(self.std_shader)
 
-        glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, self.draw_texture)
         glDrawArrays(GL_QUADS, 0, 4)
 
@@ -99,10 +100,13 @@ class March:
         self.clock.tick()
         print str(self.clock.get_fps()) + '\r',
 
-    def set_uniforms(self):
-        glUniform3f(self.uniforms['cameraPos'], *self.camera)
-
     def quit(self):
+        glDeleteTextures([self.draw_texture])
+        glDeleteFramebuffers(1, [self.fbo])
+        glDeleteProgram(self.ray_shader)
+        glDeleteProgram(self.std_shader)
+        glDeleteBuffers(1, [self.vbo])
+
         pygame.display.quit()
         pygame.quit()
 
@@ -138,7 +142,6 @@ class March:
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, 4*len(verts), verts, GL_STATIC_DRAW)
-
 
         position = glGetAttribLocation(ray_shader, 'position')
         glEnableVertexAttribArray(position)
