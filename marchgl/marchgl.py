@@ -143,10 +143,6 @@ class March:
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, 4*len(verts), verts, GL_STATIC_DRAW)
 
-        position = glGetAttribLocation(ray_shader, 'position')
-        glEnableVertexAttribArray(position)
-        glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 4*4, None)
-
         position = glGetAttribLocation(std_shader, 'position')
         glEnableVertexAttribArray(position)
         glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 4*4, None)

@@ -25,6 +25,7 @@ Sphere spheres[1];
 Box boxes[1];
 
 in vec2 uv;
+in vec2 Texcoord;
 
 out vec4 outColor;
 
@@ -199,5 +200,4 @@ void main()
 
     vec3 direction = normalize(vec3(uv * RAY_DIST, NEAR_PLANE));
     outColor = vec4(color(cameraPos, direction), 1);
-    //outColor = vec4(Texcoord.xy, 0, 1);
 }
