@@ -25,7 +25,6 @@ Sphere spheres[1];
 Box boxes[1];
 
 in vec2 uv;
-in vec2 Texcoord;
 
 out vec4 outColor;
 
