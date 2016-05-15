@@ -1,0 +1,8 @@
+clean up opengl shit on close
+handle broken shaders so it doesnt crash the goddang program, dude
+pass in screen dimensions into frag shader to handle different resolutions
+use an fov variable to figure out ray_dist
+use a buffer to pass in scene info
+handle textured objects
+path tracing?!
+make camera a projection matrix
