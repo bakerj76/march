@@ -7,7 +7,7 @@ def main():
     if len(args) == 1:
         march = March(512, 512, 1)
     elif len(args) == 4:
-        march = March(args[1], args[2], args[3])
+        march = March(int(args[1]), int(args[2]), int(args[3]))
     else:
         print 'Usage: march.py [width, height, scale]'
 

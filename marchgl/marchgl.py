@@ -6,12 +6,11 @@ import os
 import pygame
 from pygame.locals import *
 
+from scene import Scene
 from vector3 import Vector3
 
 SCRIPT_DIR = os.path.dirname(__file__)
-RAY_VERT_FILE = os.path.join(SCRIPT_DIR, r'shaders/raymarch.vs')
 RAY_FRAG_FILE = os.path.join(SCRIPT_DIR, r'shaders/raymarch.fs')
-
 STD_VERT_FILE = os.path.join(SCRIPT_DIR, r'shaders/standard.vs')
 STD_FRAG_FILE = os.path.join(SCRIPT_DIR, r'shaders/standard.fs')
 
@@ -29,7 +28,7 @@ class March:
         self.ebo = None
         self.fbo = None
 
-        self.camera = Vector3()
+        self.scene = Scene(width, height)
         self.uniforms = {}
 
         self.clock = pygame.time.Clock()
@@ -62,67 +61,15 @@ class March:
         self.quit()
 
     def reload(self):
-        with open(RAY_VERT_FILE) as vert, open(RAY_FRAG_FILE) as frag:
-            self.ray_shader = self.create_shader(vert.read(), frag.read())
+        with open(STD_VERT_FILE) as vert, open(RAY_FRAG_FILE) as ray_frag, \
+             open(STD_FRAG_FILE) as std_frag:
+            vert_read = vert.read()
 
-        with open(STD_VERT_FILE) as vert, open(STD_FRAG_FILE) as frag:
-            self.std_shader = self.create_shader(vert.read(), frag.read())
+            self.ray_shader = self.create_shader(vert_read, ray_frag.read())
+            self.std_shader = self.create_shader(vert_read, std_frag.read())
 
         self.setup(self.ray_shader, self.std_shader)
         self.setup_uniforms()
-
-    def setup_uniforms(self):
-        glUseProgram(self.ray_shader)
-        self.uniforms['cameraPos'] = glGetUniformLocation(self.ray_shader, 'cameraPos')
-
-    def set_uniforms(self):
-        glUniform3f(self.uniforms['cameraPos'], *self.camera)
-
-    def draw(self):
-        glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
-        glViewport(0, 0, self.width, self.height)
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(self.ray_shader)
-        self.set_uniforms()
-
-        glBindTexture(GL_TEXTURE_2D, self.draw_texture)
-        glDrawArrays(GL_QUADS, 0, 4)
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        glViewport(0, 0, self.real_width, self.real_height)
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(self.std_shader)
-
-        glBindTexture(GL_TEXTURE_2D, self.draw_texture)
-        glDrawArrays(GL_QUADS, 0, 4)
-
-        pygame.display.flip()
-        self.clock.tick()
-        print str(self.clock.get_fps()) + '\r',
-
-    def quit(self):
-        glDeleteTextures([self.draw_texture])
-        glDeleteFramebuffers(1, [self.fbo])
-        glDeleteProgram(self.ray_shader)
-        glDeleteProgram(self.std_shader)
-        glDeleteBuffers(1, [self.vbo])
-
-        pygame.display.quit()
-        pygame.quit()
-
-    def handle_events(self):
-        e = pygame.event.poll()
-
-        if e.type == pygame.QUIT:
-            self.running = False
-
-        if e.type == pygame.KEYUP and e.key == pygame.K_RETURN:
-            self.reload()
-        elif pygame.key.get_pressed()[pygame.K_w]:
-            self.camera.z += 5 * self.clock.get_time()/1000.0
-        elif pygame.key.get_pressed()[pygame.K_s]:
-            self.camera.z -= 5 * self.clock.get_time()/1000.0
-
 
     def create_shader(self, vert, frag):
         return compileProgram(
@@ -149,7 +96,8 @@ class March:
 
         texcoord = glGetAttribLocation(std_shader, 'texcoord')
         glEnableVertexAttribArray(texcoord)
-        glVertexAttribPointer(texcoord, 2, GL_FLOAT, GL_FALSE, 4*4, ctypes.c_void_p(4*2))
+        glVertexAttribPointer(texcoord, 2, GL_FLOAT, GL_FALSE, 4*4,
+            ctypes.c_void_p(4*2))
 
         self.draw_texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.draw_texture)
@@ -168,3 +116,52 @@ class March:
 
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
             raise Exception('well... fuck.')
+
+    def setup_uniforms(self):
+        glUseProgram(self.ray_shader)
+        self.scene.setup_uniforms(self.ray_shader, self.uniforms)
+
+    def set_uniforms(self):
+        self.scene.set_uniforms(self.uniforms)
+
+    def draw(self):
+        glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
+        glViewport(0, 0, self.width, self.height)
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(self.ray_shader)
+        self.set_uniforms()
+
+        glBindTexture(GL_TEXTURE_2D, self.draw_texture)
+        glDrawArrays(GL_QUADS, 0, 4)
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glViewport(0, 0, self.real_width, self.real_height)
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(self.std_shader)
+
+        glBindTexture(GL_TEXTURE_2D, self.draw_texture)
+        glDrawArrays(GL_QUADS, 0, 4)
+
+        pygame.display.flip()
+        self.clock.tick()
+        print str(self.clock.get_fps()) + '\r',
+
+    def handle_events(self):
+        e = pygame.event.poll()
+
+        if e.type == pygame.QUIT:
+            self.running = False
+        elif e.type == pygame.KEYUP and e.key == pygame.K_RETURN:
+            self.reload()
+
+        self.scene.update(e, self.clock.get_time()/1000.0)
+
+    def quit(self):
+        glDeleteTextures([self.draw_texture])
+        glDeleteFramebuffers(1, [self.fbo])
+        glDeleteProgram(self.ray_shader)
+        glDeleteProgram(self.std_shader)
+        glDeleteBuffers(1, [self.vbo])
+
+        pygame.display.quit()
+        pygame.quit()

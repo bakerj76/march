@@ -20,26 +20,30 @@ struct Light
     vec3 color;
 };
 
-Light lights[2];
-Sphere spheres[1];
-Box boxes[1];
+const int LIGHTS = 2;
+Light lights[LIGHTS];
+const int SPHERES = 1;
+Sphere spheres[SPHERES];
+const int BOXES = 2;
+Box boxes[BOXES];
 
 in vec2 uv;
 in vec2 Texcoord;
 
-out vec4 outColor;
+out lowp vec4 outColor;
 
-const float EPSILON = 0.01f;
-const float HIT_DIST = 0.1f;
 const float PI = 3.14159f;
+const float HIT_DIST = 0.1f;
+const float EPSILON = 0.01f;
+const float h = 0.0001f;
 
 const int SPHERE = 1;
 const int BOX    = 2;
 
 uniform int MAX_STEPS = 64;
-uniform float RAY_DIST = 0.5f;
-uniform float NEAR_PLANE = 0.5f;
-
+uniform float rayDist = 0.5f;
+uniform float zNear = 0.5f;
+uniform float zFar = 25f;
 uniform vec3 cameraPos = vec3(0f);
 
 float sdSphere(vec3 point, vec3 position, float radius)
@@ -56,7 +60,7 @@ float closestDistance(vec3 point, out vec3 color)
 {
     float minimum = 3.4028e+38f;
 
-    for (int i = 0; i < boxes.length(); i++)
+    for (int i = 0; i < BOXES; i++)
     {
         Box box = boxes[i];
         float dist = udBox(point, box.position, box.dimensions);
@@ -68,7 +72,7 @@ float closestDistance(vec3 point, out vec3 color)
         }
     }
 
-    for (int i = 0; i < spheres.length(); i++)
+    for (int i = 0; i < SPHERES; i++)
     {
         Sphere sphere = spheres[i];
         float dist = sdSphere(point, sphere.position, sphere.radius);
@@ -97,11 +101,17 @@ bool march(vec3 origin, vec3 direction, out vec3 hit, out vec3 color)
     {
         hit = origin + direction * t;
         float closest = closestDistance(hit, color);
-        t += closest;
 
         if (closest <= EPSILON)
         {
             return true;
+        }
+
+        t += closest;
+
+        if (t > zFar)
+        {
+            return false;
         }
     }
 
@@ -110,8 +120,6 @@ bool march(vec3 origin, vec3 direction, out vec3 hit, out vec3 color)
 
 vec3 getNormal(vec3 p)
 {
-	float h = 0.0001f;
-
 	return normalize(
         vec3(
 		    closestDistance(p + vec3(h, 0, 0)) -
@@ -129,6 +137,28 @@ vec3 getBackground(vec3 direction)
     return vec3(1f);
 }
 
+//http://lolengine.net/blog/2013/09/21/picking-orthogonal-vector-combing-coconuts
+vec3 orthogonal(vec3 v)
+{
+    return abs(v.x) > abs(v.z) ? vec3(-v.y, v.x, 0.0) : vec3(0.0, -v.z, v.y);
+}
+
+float ambientOcclusion(vec3 p, vec3 n)
+{
+    float stepSize = 0.01f;
+    float t = stepSize;
+    float oc = 0.0f;
+
+    for(int i = 0; i < 10; ++i)
+    {
+        float d = closestDistance(p + n * t);
+        oc += t - d; // Actual distance to surface - distance field value
+        t += stepSize;
+    }
+
+    return 1 - clamp(oc, 0, 1);
+}
+
 float checkVisibility(vec3 lightPos, vec3 hit, float k)
 {
     vec3 direction = normalize(lightPos - hit);
@@ -139,13 +169,14 @@ float checkVisibility(vec3 lightPos, vec3 hit, float k)
     for (int j = 0; j < MAX_STEPS; j++)
     {
         float closest = closestDistance(newOrigin + direction*t);
+
+        if (closest < EPSILON || t > zFar)
+        {
+            break;
+        }
+
         res = min(res, k*closest/t);
         t += closest;
-
-        if (closest < EPSILON)
-        {
-            continue;
-        }
     }
 
     return min(res, 1f);
@@ -157,7 +188,7 @@ vec3 color(vec3 origin, vec3 direction)
     vec3 color = vec3(0f);
     vec3 hitColor;
 
-    for (int i = 0; i < lights.length(); i++)
+    for (int i = 0; i < LIGHTS; i++)
     {
         Light light = lights[i];
 
@@ -170,7 +201,9 @@ vec3 color(vec3 origin, vec3 direction)
             {
                 vec3 lightDirection = normalize(light.position - hit);
                 vec3 intensity = light.color * dot(normal, lightDirection);
-                color += hitColor * intensity * visibility;
+                color += (hitColor * intensity) *
+                    (visibility * ambientOcclusion(hit, normal));
+                //color += ambientOcclusion(hit, normal) * vec3(1f);
             }
         }
     }
@@ -186,8 +219,12 @@ void setupScene()
     lights[1].color = vec3(1);
 
     boxes[0].position = vec3(0f, -3.5f, 10f);
-    boxes[0].dimensions = vec3(10f, 1f, 10f);
+    boxes[0].dimensions = vec3(20f, 1f, 20f);
     boxes[0].color = vec3(0.5f, 0.5f, 0f);
+
+    boxes[1].position = vec3(6f, 0f, 10f);
+    boxes[1].dimensions = vec3(6f);
+    boxes[1].color = vec3(0.5f, 0.5f, 0f);
 
     spheres[0].position = vec3(0f, 0f, 10f);
     spheres[0].radius = 3f;
@@ -198,6 +235,6 @@ void main()
 {
     setupScene();
 
-    vec3 direction = normalize(vec3(uv * RAY_DIST, NEAR_PLANE));
+    vec3 direction = normalize(vec3(uv * rayDist, zNear));
     outColor = vec4(color(cameraPos, direction), 1);
 }
